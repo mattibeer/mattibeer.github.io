@@ -13314,7 +13314,7 @@ class OpenStreetData {
             const data = `
             [out:json][timeout:25];
             (
-                node["${currentMode.osmKey}"="${currentMode.osmValue}"](around:${internalZoom}, ${center.lat}, ${center.lng});
+                ${currentMode.type}["${currentMode.osmKey}"="${currentMode.osmValue}"](around:${internalZoom}, ${center.lat}, ${center.lng});
             );
             out body;
             >;
@@ -17501,6 +17501,13 @@ const rubrics = {
         osmKey: "amenity",
         osmValue: "ice_cream",
         type: "node"
+    },
+    hospital: {
+        text: "Krankenhaus",
+        color: "yellow",
+        osmKey: "amenity",
+        osmValue: "hospital",
+        type: "way"
     }
 };
 
