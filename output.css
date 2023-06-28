@@ -542,12 +542,16 @@ video {
   flex: 1 1 0%;
 }
 
-.basis-1\/6 {
+.basis-1\/12 {
+  flex-basis: 8.333333%;
+}
+
+.basis-2\/12 {
   flex-basis: 16.666667%;
 }
 
-.basis-4\/6 {
-  flex-basis: 66.666667%;
+.basis-9\/12 {
+  flex-basis: 75%;
 }
 
 .flex-row {
@@ -560,6 +564,10 @@ video {
 
 .border {
   border-width: 1px;
+}
+
+.filter {
+  filter: var(--tw-blur) var(--tw-brightness) var(--tw-contrast) var(--tw-grayscale) var(--tw-hue-rotate) var(--tw-invert) var(--tw-saturate) var(--tw-sepia) var(--tw-drop-shadow);
 }
 
 .\[out\:json\] {
