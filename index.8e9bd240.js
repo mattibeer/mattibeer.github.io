@@ -581,16 +581,19 @@ var _rxjs = require("rxjs");
 var _rubrics = require("./rubrics");
 class TableTennisMap {
     constructor(){
-        this.currentStatus = "tabletennis";
+        this.currentStatus = [];
         this.setStatusTo = async (modus)=>{
-            console.log(" set status to: ", modus);
-            this.currentStatus = modus;
-            this.myMap.onChangeModus(modus);
-        // todo trigger mapsStatus change
+            const index = this.currentStatus.indexOf(modus);
+            if (index === -1) this.currentStatus.push(modus);
+            else {
+                this.currentStatus.splice(index, 1);
+                this.myMap.deleteAllMarkerOfMode(modus);
+            }
+            this.myMap.onChangeModus(this.currentStatus);
         };
         this.initMap = async ()=>{
             this.myPosition = await (0, _customLocationClass.CustomLocation).getCurrentPosition();
-            this.myMap = new (0, _leafletMapClass.LeafletMap)("map", this.myPosition, "tabletennis");
+            this.myMap = new (0, _leafletMapClass.LeafletMap)("map", this.myPosition);
             this.afterInitMap();
         /*
     this.myMap.digimap.on('load', () => {
@@ -599,18 +602,20 @@ class TableTennisMap {
     */ };
         this.afterInitMap = ()=>{
             this.myMap.mapsStatus.pipe((0, _rxjs.debounceTime)(300)).subscribe(async (status)=>{
-                const tableCoords = await (0, _openStreetDataClass.OpenStreetData).getCoordinatesForModus(status.center, status.zoom, status.modus);
-                tableCoords.forEach((table)=>{
-                    const markerType = (0, _rubrics.rubrics)[this.currentStatus];
-                    this.myMap.addMarker(table, markerType);
-                });
+                for (let mode of status.modus){
+                    const tableCoords = await (0, _openStreetDataClass.OpenStreetData).getCoordinatesForModus(status.center, status.zoom, mode);
+                    tableCoords.forEach((table)=>{
+                        const markerType = (0, _rubrics.rubrics)[mode];
+                        this.myMap.addMarker(table, markerType, mode);
+                    });
+                }
                 const menuul = document.getElementById("menulist");
                 removeAllChildNodes(menuul);
                 for(let rubric in 0, _rubrics.rubrics){
                     var li = document.createElement("li");
                     li.addEventListener("click", ()=>this.setStatusTo(rubric));
                     li.appendChild(document.createTextNode((0, _rubrics.rubrics)[rubric].text));
-                    if (status.modus == rubric) {
+                    if (status.modus.includes(rubric)) {
                         li.style.backgroundColor = (0, _rubrics.rubrics)[rubric].color;
                         li.style.color = "white";
                     }
@@ -630,7 +635,7 @@ const mainfunc = async ()=>{
 };
 mainfunc();
 
-},{"./customLocation.class":"als8E","./leafletMap.class":"a1DEl","./openStreetData.class":"eIDnH","rxjs":"lLy7s","./rubrics":"a4mVH"}],"als8E":[function(require,module,exports) {
+},{"./customLocation.class":"als8E","rxjs":"lLy7s","./rubrics":"a4mVH","./leafletMap.class":"a1DEl","./openStreetData.class":"eIDnH"}],"als8E":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "CustomLocation", ()=>CustomLocation);
@@ -644,9 +649,17 @@ class CustomLocation {
                 };
                 resolve(position);
             }, (error)=>{
-                reject("no position available");
+                //reject("no position available");
+                resolve({
+                    lat: 52.5098812,
+                    lng: 13.3749094
+                });
             });
-            else reject("no geolocation available");
+            else // reject("no geolocation available");
+            resolve({
+                lat: 52.5098812,
+                lng: 13.3749094
+            });
         });
     }
 }
@@ -681,73 +694,7 @@ exports.export = function(dest, destName, get) {
     });
 };
 
-},{}],"a1DEl":[function(require,module,exports) {
-var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
-parcelHelpers.defineInteropFlag(exports);
-parcelHelpers.export(exports, "LeafletMap", ()=>LeafletMap);
-var _rxjs = require("rxjs");
-var _leaflet = require("leaflet");
-var _leafletCss = require("leaflet/dist/leaflet.css");
-class LeafletMap {
-    constructor(mapDiv, location, modus){
-        this.modus = "tabletennis";
-        this.modus = modus;
-        const options = {
-            center: location,
-            zoom: 16
-        };
-        this.digimap = (0, _leaflet.map)(mapDiv, options);
-        (0, _leaflet.tileLayer)("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-            maxZoom: 19,
-            minZoom: 14,
-            attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-        }).addTo(this.digimap);
-        this.mapsStatus = new (0, _rxjs.ReplaySubject)(1);
-        this.digimap.on("zoomend", (event)=>{
-            console.log("zoomed  ");
-            this.mapsStatus.next({
-                center: this.digimap.getCenter(),
-                zoom: this.digimap.getZoom(),
-                modus: this.modus
-            });
-        });
-        this.digimap.on("moveend", (event)=>{
-            console.log("moved ");
-            this.mapsStatus.next({
-                center: this.digimap.getCenter(),
-                zoom: this.digimap.getZoom(),
-                modus: this.modus
-            });
-        });
-    }
-    /*
-    mapInitialized = (callback) => {
-        this.myMap.on('load', callback)
-    }
-    */ onChangeModus(modus) {
-        this.modus = modus;
-        if (this.digimap) this.mapsStatus.next({
-            center: this.digimap.getCenter(),
-            zoom: this.digimap.getZoom(),
-            modus: this.modus
-        });
-    }
-    addMarker(location, markerType) {
-        if (this.digimap) {
-            console.log("add marker");
-            const osmMakerOpt = {
-                title: markerType.text,
-                icon: new (0, _leaflet.Icon)({
-                    iconUrl: `https://maps.google.com/mapfiles/ms/icons/${markerType.color}-dot.png`
-                })
-            };
-            const osmMarker = (0, _leaflet.marker)(location, osmMakerOpt);
-            osmMarker.addTo(this.digimap);
-        }
-    }
-}
-
-},{"rxjs":"lLy7s","leaflet":"iFbO2","leaflet/dist/leaflet.css":"6JhOO","@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}],"lLy7s":[function(require,module,exports) {
+},{}],"lLy7s":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "Observable", ()=>(0, _observable.Observable));
@@ -2702,7 +2649,173 @@ var OperatorSubscriber = function(_super) {
     return OperatorSubscriber;
 }((0, _subscriber.Subscriber));
 
-},{"tslib":"lRdW5","../Subscriber":"1VFFQ","@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}],"iFbO2":[function(require,module,exports) {
+},{"tslib":"lRdW5","../Subscriber":"1VFFQ","@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}],"a4mVH":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "rubrics", ()=>rubrics);
+const rubrics = {
+    tabletennis: {
+        text: "Tischtennis",
+        color: "green",
+        osmKey: "sport",
+        osmValue: "table_tennis",
+        type: "node"
+    },
+    /*
+    kicker: {
+
+        text: "Kicker",
+        color: "purple",
+        osmKey: "sport",
+        osmValue: "table_soccer" 
+    },
+    */ bicycle: {
+        text: "Fahrradladen",
+        color: "orange",
+        osmKey: "shop",
+        osmValue: "bicycle",
+        type: "node"
+    },
+    indian: {
+        text: "Indisches Restaurant",
+        color: "blue",
+        osmKey: "cuisine",
+        osmValue: "indian",
+        type: "node"
+    },
+    icecream: {
+        text: "Eiscaf\xe9",
+        color: "pink",
+        osmKey: "amenity",
+        osmValue: "ice_cream",
+        type: "node"
+    },
+    bookshop: {
+        text: "Buchladen",
+        color: "red",
+        osmKey: "shop",
+        osmValue: "books",
+        type: "node"
+    },
+    vinyl: {
+        text: "Plattenladen",
+        color: "red",
+        osmKey: "music",
+        osmValue: "recorded",
+        type: "node"
+    },
+    bakery: {
+        text: "B\xe4ckerei",
+        color: "purple",
+        osmKey: "shop",
+        osmValue: "bakery",
+        type: "node"
+    },
+    pharmacy: {
+        text: "Apotheke",
+        color: "purple",
+        osmKey: "amenity",
+        osmValue: "pharmacy",
+        type: "node"
+    },
+    israeli: {
+        text: "Israli Cuisine",
+        color: "blue",
+        osmKey: "cuisine",
+        osmValue: "mediterranean;jewish"
+    },
+    israeli2: {
+        text: "Jewish Cuisine",
+        color: "blue",
+        osmKey: "cuisine",
+        osmValue: "oriental;israeli"
+    },
+    lebanon: {
+        text: "Lebanese Cuisine",
+        color: "blue",
+        osmKey: "cuisine",
+        osmValue: "oriental"
+    }
+};
+
+},{"@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}],"a1DEl":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "LeafletMap", ()=>LeafletMap);
+var _rxjs = require("rxjs");
+var _leaflet = require("leaflet");
+var _leafletCss = require("leaflet/dist/leaflet.css");
+class LeafletMap {
+    constructor(mapDiv, location){
+        this.markerCollection = [];
+        const options = {
+            center: location,
+            zoom: 16
+        };
+        this.modus = [];
+        this.digimap = (0, _leaflet.map)(mapDiv, options);
+        (0, _leaflet.tileLayer)("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            maxZoom: 19,
+            minZoom: 14,
+            attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+        }).addTo(this.digimap);
+        this.mapsStatus = new (0, _rxjs.ReplaySubject)(1);
+        this.digimap.on("zoomend", (event)=>{
+            console.log("zoomed  ");
+            this.mapsStatus.next({
+                center: this.digimap.getCenter(),
+                zoom: this.digimap.getZoom(),
+                modus: this.modus
+            });
+        });
+        this.digimap.on("moveend", (event)=>{
+            console.log("moved ");
+            this.mapsStatus.next({
+                center: this.digimap.getCenter(),
+                zoom: this.digimap.getZoom(),
+                modus: this.modus
+            });
+        });
+    }
+    /*
+    mapInitialized = (callback) => {
+        this.myMap.on('load', callback)
+    }
+    */ onChangeModus(modus) {
+        this.modus = modus;
+        if (this.digimap) this.mapsStatus.next({
+            center: this.digimap.getCenter(),
+            zoom: this.digimap.getZoom(),
+            modus
+        });
+    }
+    addMarker(location, markerType, mode) {
+        if (this.digimap) {
+            console.log("add marker");
+            const osmMakerOpt = {
+                title: markerType.text,
+                icon: new (0, _leaflet.Icon)({
+                    iconUrl: `https://maps.google.com/mapfiles/ms/icons/${markerType.color}-dot.png`
+                })
+            };
+            const osmMarker = (0, _leaflet.marker)(location, osmMakerOpt);
+            osmMarker.addTo(this.digimap);
+            this.markerCollection.push({
+                mode,
+                marker: osmMarker
+            });
+        }
+    }
+    deleteAllMarkerOfMode(mode) {
+        if (this.digimap) {
+            const markers = this.markerCollection.filter((item)=>item.mode === mode);
+            for(let marker in markers)this.digimap.removeLayer(markers[marker].marker);
+            this.markerCollection = this.markerCollection.filter((item)=>item.mode !== mode);
+        }
+    }
+}
+
+},{"rxjs":"lLy7s","leaflet":"iFbO2","leaflet/dist/leaflet.css":"6JhOO","@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}],"iFbO2":[function(require,module,exports) {
 /* @preserve
  * Leaflet 1.9.4, a JS library for interactive maps. https://leafletjs.com
  * (c) 2010-2023 Vladimir Agafonkin, (c) 2010-2011 CloudMade
@@ -14437,15 +14550,15 @@ const predicates = (0, _utilsJsDefault.default).toFlatObject((0, _utilsJsDefault
 }
 exports.default = toFormData;
 
-},{"adfd9b103875c2dd":"k24kT","../utils.js":"5By4s","../core/AxiosError.js":"3u8Tl","../platform/node/classes/FormData.js":"aFlee","@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}],"k24kT":[function(require,module,exports) {
+},{"adfd9b103875c2dd":"4avXe","../utils.js":"5By4s","../core/AxiosError.js":"3u8Tl","../platform/node/classes/FormData.js":"aFlee","@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}],"4avXe":[function(require,module,exports) {
 /*!
  * The buffer module from node.js, for the browser.
  *
  * @author   Feross Aboukhadijeh <https://feross.org>
  * @license  MIT
  */ /* eslint-disable no-proto */ "use strict";
-var base64 = require("5d2ce52638114663");
-var ieee754 = require("8970417cb9c0302c");
+var base64 = require("936d7d40ee51556e");
+var ieee754 = require("a9454e8447bbf491");
 var customInspectSymbol = typeof Symbol === "function" && typeof Symbol["for"] === "function" // eslint-disable-line dot-notation
  ? Symbol["for"]("nodejs.util.inspect.custom") // eslint-disable-line dot-notation
  : null;
@@ -15667,7 +15780,7 @@ var hexSliceLookupTable = function() {
     return table;
 }();
 
-},{"5d2ce52638114663":"bNksy","8970417cb9c0302c":"UYHSL"}],"bNksy":[function(require,module,exports) {
+},{"936d7d40ee51556e":"6pHou","a9454e8447bbf491":"hdivi"}],"6pHou":[function(require,module,exports) {
 "use strict";
 exports.byteLength = byteLength;
 exports.toByteArray = toByteArray;
@@ -15767,7 +15880,7 @@ function fromByteArray(uint8) {
     return parts.join("");
 }
 
-},{}],"UYHSL":[function(require,module,exports) {
+},{}],"hdivi":[function(require,module,exports) {
 /*! ieee754. BSD-3-Clause License. Feross Aboukhadijeh <https://feross.org/opensource> */ exports.read = function(buffer, offset, isLE, mLen, nBytes) {
     var e, m;
     var eLen = nBytes * 8 - mLen - 1;
@@ -17460,49 +17573,6 @@ Object.entries(HttpStatusCode).forEach(([key, value])=>{
     HttpStatusCode[value] = key;
 });
 exports.default = HttpStatusCode;
-
-},{"@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}],"a4mVH":[function(require,module,exports) {
-var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
-parcelHelpers.defineInteropFlag(exports);
-parcelHelpers.export(exports, "rubrics", ()=>rubrics);
-const rubrics = {
-    tabletennis: {
-        text: "Tischtennis",
-        color: "green",
-        osmKey: "sport",
-        osmValue: "table_tennis",
-        type: "node"
-    },
-    /*
-    kicker: {
-
-        text: "Kicker",
-        color: "purple",
-        osmKey: "sport",
-        osmValue: "table_soccer" 
-    },
-    */ bicycle: {
-        text: "Fahrradladen",
-        color: "orange",
-        osmKey: "shop",
-        osmValue: "bicycle",
-        type: "node"
-    },
-    indian: {
-        text: "Indisches Restaurant",
-        color: "blue",
-        osmKey: "cuisine",
-        osmValue: "indian",
-        type: "node"
-    },
-    icecream: {
-        text: "Eiscaf\xe9",
-        color: "pink",
-        osmKey: "amenity",
-        osmValue: "ice_cream",
-        type: "node"
-    }
-};
 
 },{"@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}]},["g2QuX","1jwFz"], "1jwFz", "parcelRequiree4ec")
 
