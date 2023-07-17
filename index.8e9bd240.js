@@ -650,16 +650,20 @@ class CustomLocation {
                 resolve(position);
             }, (error)=>{
                 //reject("no position available");
+                alert("Um an Deinen aktuellen Ort zu gelangen, m\xfcsstest Du die Ortungsfunktion f\xfcr den Browser an Deinem Ger\xe4t aktivieren und neu laden, sonst landest Du am Potsdamer Platz ");
                 resolve({
                     lat: 52.5098812,
                     lng: 13.3749094
                 });
             });
-            else // reject("no geolocation available");
-            resolve({
-                lat: 52.5098812,
-                lng: 13.3749094
-            });
+            else {
+                // reject("no geolocation available");
+                alert("Um an Deinen aktuellen Ort zu gelangen, m\xfcsstest Du die Ortungsfunktion f\xfcr den Browser an Deinem Ger\xe4t aktivieren und neu laden, sonst landest Du am Potsdamer Platz ");
+                resolve({
+                    lat: 52.5098812,
+                    lng: 13.3749094
+                });
+            }
         });
     }
 }
